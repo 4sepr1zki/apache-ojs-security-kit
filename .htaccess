@@ -1,0 +1,57 @@
+# =====================================================================
+# OJS Security & Performance Hardening Configuration (Apache / LiteSpeed)
+# Cocok untuk cPanel, WHM, Plesk, atau LAMP Stack
+# =====================================================================
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# ---------------------------------------------------------------------
+# 1. ANTI-PARASITE SEO: Blokir Injeksi Judol di pdfJsViewer (HTTP 410 Gone)
+# ---------------------------------------------------------------------
+# Tolak jika ada parameter 'id' (injeksi query spam attacker)
+RewriteCond %{REQUEST_URI} ^/plugins/generic/pdfJsViewer/pdf\.js/web/viewer\.html$ [NC]
+RewriteCond %{QUERY_STRING} (^|&)id= [NC]
+RewriteRule ^ - [G,L]
+
+# Tolak jika ada string 'signOut' atau 'login' di query string
+RewriteCond %{REQUEST_URI} ^/plugins/generic/pdfJsViewer/pdf\.js/web/viewer\.html$ [NC]
+RewriteCond %{QUERY_STRING} (signOut|login) [NC]
+RewriteRule ^ - [G,L]
+
+# Validasi alur resmi: parameter 'file' wajib memuat kata 'download' naskah OJS
+RewriteCond %{REQUEST_URI} ^/plugins/generic/pdfJsViewer/pdf\.js/web/viewer\.html$ [NC]
+RewriteCond %{QUERY_STRING} (^|&)file= [NC]
+RewriteCond %{QUERY_STRING} !(^|&)file=[^&]*download [NC]
+RewriteRule ^ - [G,L]
+
+
+# ---------------------------------------------------------------------
+# 2. ANTI SIMILARITY CALCULATION TRAP (HTTP 403 Forbidden)
+# Mencegah loop kalkulasi kesamaan artikel yang memicu MySQL hang & CPU 100%
+# ---------------------------------------------------------------------
+RewriteCond %{QUERY_STRING} articlesBySimilarityPage [NC]
+RewriteRule ^ - [F,L]
+
+
+# ---------------------------------------------------------------------
+# 3. BAD BOT & AGGRESSIVE SCRAPER BLOCKER (HTTP 403 Forbidden)
+# Memblokir bot SEO berlebih, AI scraper tanpa izin, dan scanning tools
+# ---------------------------------------------------------------------
+RewriteCond %{HTTP_USER_AGENT} (SemrushBot|AhrefsBot|MJ12bot|DotBot|Bytespider|SERankingBacklinksBot|AwarioBot) [NC,OR]
+RewriteCond %{HTTP_USER_AGENT} (PerplexityBot|ExaSearchBot|Reflectionbot|CCBot|AmazonBot|LinkupBot|meta-externalagent|meta-webindexer|Baiduspider) [NC,OR]
+RewriteCond %{HTTP_USER_AGENT} (msh-pdfmin|sqlmap|python-requests|fuzz|libwww|python-httpx|Go-http-client) [NC]
+RewriteRule ^ - [F,L]
+
+</IfModule>
+
+
+# ---------------------------------------------------------------------
+# 4. SUNTIKKAN HEADER NOINDEX PADA VIEWER.HTML
+# Memaksa bot mesin pencari segera menghapus URL parasit dari index
+# ---------------------------------------------------------------------
+<IfModule mod_headers.c>
+    <Files "viewer.html">
+        Header set X-Robots-Tag "noindex, nofollow, noarchive"
+    </Files>
+</IfModule>
